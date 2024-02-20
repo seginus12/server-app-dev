@@ -7,6 +7,7 @@ from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.authtoken.models import Token
 from django.conf import settings
 import datetime
+from django.core.exceptions import ObjectDoesNotExist
 
 User = get_user_model()
     
@@ -80,7 +81,11 @@ class UserLogin2FASerializer(serializers.ModelSerializer):
                 raise AuthenticationFailed('Access denied: wrong username or password.')
         else:
             raise AuthenticationFailed('Both "username" and "password" are required.')
-        user.auth_token.delete()
+        try:
+            Token.objects.get(user=user)
+            user.auth_token.delete()
+        except ObjectDoesNotExist:
+            pass
         Token.objects.create(user=user)
         attrs['user'] = user
         return attrs
@@ -89,14 +94,16 @@ class UserLogin2FASerializer(serializers.ModelSerializer):
         user = validated_data['user']
         otp_code = generate_otp()
  #       otp_expiry = datetime.now() + timedelta(minutes = 10)
-        otp_odject = OneTimePassword.objects.get(user=user)
-        if not otp_odject:
+        try:
+            otp_odject = OneTimePassword.objects.get(user=user)
+        except:
             otp_odject = OneTimePassword(
                 user=user,
                 code=otp_code,
     #           otp_expiry=otp_expiry,
     #           max_otp_try=settings.MAX_OTP_TRY
             )
+        print(otp_odject)
         send_otp_email(user.email, otp_code)
         return otp_odject
     
